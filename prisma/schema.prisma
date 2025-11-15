@@ -1,0 +1,271 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // Change to "postgresql" for production
+  url      = env("DATABASE_URL")
+}
+
+// Note: To switch to PostgreSQL in production:
+// 1. Change provider above to "postgresql"
+// 2. Update DATABASE_URL in .env to your PostgreSQL connection string
+// 3. Run: npx prisma migrate dev --name migrate_to_postgres
+
+model User {
+  id                String   @id @default(uuid())
+  nom               String
+  prenom            String
+  email             String   @unique
+  password          String
+  telephone         String
+  deuxiemeTelephone String?
+  adresse           String?
+  etat              String?  // Active, Inactive, etc.
+  permissions       String?  // JSON string of permissions
+  imageProfil       String?  // URL or path to profile image
+  nomMarque         String
+  siteUrl           String
+  ville             String
+  createdAt         DateTime @default(now())
+
+  // Relations
+  parcels      Parcel[]
+  pickups      Pickup[]
+  tickets      Ticket[]
+  invoices     Invoice[]
+  returns      Return[]
+  inventory    Inventory[]
+  teamMembers  TeamMember[]
+  messages     Message[]
+  apiKeys      ApiKey[]
+  webhooks     Webhook[]
+
+  @@map("users")
+}
+
+model Parcel {
+  id                String   @id @default(uuid())
+  numero            String
+  code              String   @unique
+  destinataire      String
+  telephone         String
+  adresse           String
+  ville             String
+  statut            String   // en_attente, a_preparer, a_changer, etc.
+  statutFacturation String   // en_attente, en_cours, facture
+  typeColis         String   // colis_stock, colis_normal, echange_avec, echange_sans
+  fraisLivraison    Float
+  montantTotal      Float
+  referenceColis    String
+  referenceVendeur  String
+  note              String?
+  vendeurSecondaire String?
+  derniereAction    String
+  dateCreation      DateTime @default(now())
+  userId            String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("parcels")
+  @@index([userId])
+  @@index([code])
+  @@index([statut])
+  @@index([dateCreation])
+}
+
+model Pickup {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  statut        String   // en_attente, programme, effectue, annule
+  ville         String
+  nombreColis   Int      @default(0)
+  dateDemande   DateTime @default(now())
+  frais         Float    @default(0)
+  nom           String
+  telephone     String
+  adresse       String
+  note          String?
+  vendeurSecondaire String?
+  userId        String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("pickups")
+  @@index([userId])
+  @@index([code])
+  @@index([dateDemande])
+}
+
+model Ticket {
+  id          String   @id @default(uuid())
+  sujet       String
+  description String
+  statut      String   // ouvert, en_cours, resolu, ferme
+  dateCreation DateTime @default(now())
+  userId      String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("tickets")
+  @@index([userId])
+  @@index([statut])
+}
+
+model Invoice {
+  id          String   @id @default(uuid())
+  numero      String   @unique
+  montant     Float
+  dateEmission DateTime @default(now())
+  statut      String   // en_attente, paye, en_retard
+  userId      String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("invoices")
+  @@index([userId])
+  @@index([numero])
+}
+
+model Return {
+  id          String   @id @default(uuid())
+  numeroColis String
+  raison      String
+  dateDemande DateTime @default(now())
+  statut      String   // en_attente, approuve, refuse, traite
+  userId      String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("returns")
+  @@index([userId])
+  @@index([numeroColis])
+}
+
+model Inventory {
+  id        String   @id @default(uuid())
+  produit   String
+  quantite  Int
+  prix      Float
+  dateAjout DateTime @default(now())
+  userId    String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("inventory")
+  @@index([userId])
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  nom       String
+  prenom    String
+  email     String   @unique
+  role      String
+  dateAjout DateTime @default(now())
+  userId    String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("team_members")
+  @@index([userId])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  expediteur String
+  sujet     String
+  contenu   String
+  dateEnvoi DateTime @default(now())
+  lu        Boolean  @default(false)
+  userId    String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+  @@index([userId])
+  @@index([lu])
+}
+
+model City {
+  id                    Int      @id
+  zoneId                Int?
+  ville                 String
+  name                  String?
+  arabicName            String?
+  price                 Float
+  delais                String?
+  region                String?
+  refusedCost           Float    @default(0)
+  canceledCost          Float    @default(0)
+  priceDriver           Float?
+  refusedCostDriver     Float    @default(0)
+  active                String?  // "Oui" or "Non"
+  driverId              String?
+  pickerId              String?
+  note                  String?
+  comment               String?
+  pickupDistrict        String?  // "Oui" or "Non"
+  minPickup             Int      @default(0)
+  feePickup             Float    @default(0)
+  feePickupDriver       Float    @default(0)
+  minPickupRequired     Int      @default(0)
+  pickupEndTime         String?
+  allowNewDestination   String?  // "Oui" or "Non"
+  deliveryDays          String?
+  createdAt             String?
+  updatedAt             DateTime?
+  deletedAt             DateTime?
+
+  @@map("cities")
+  @@index([ville])
+  @@index([region])
+  @@index([active])
+}
+
+model ApiKey {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  name        String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  lastUsedAt  DateTime?
+  userId      String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+  @@index([userId])
+  @@index([key])
+}
+
+model Webhook {
+  id          String   @id @default(uuid())
+  url         String
+  event       String   // parcel.status_update, parcel.created, etc.
+  secretKey   String   @unique
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  lastTriggeredAt DateTime?
+  userId      String
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("webhooks")
+  @@index([userId])
+  @@index([event])
+  @@index([active])
+}
