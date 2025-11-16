@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     delete baseWhere.telephone;
     delete baseWhere.referenceColis;
 
-    let parcels = await prisma.parcel.findMany({
+    let parcels = await prisma.parcels.findMany({
       where: baseWhere,
       orderBy: { dateCreation: 'desc' },
     });
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if code already exists
-    const existing = await prisma.parcel.findUnique({
+    const existing = await prisma.parcels.findUnique({
       where: { code },
     });
 
@@ -219,8 +219,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const parcel = await prisma.parcel.create({
+    const parcel = await prisma.parcels.create({
       data: {
+        id: crypto.randomUUID(), // Generate unique ID for parcel
         numero: numero || code,
         code,
         destinataire,

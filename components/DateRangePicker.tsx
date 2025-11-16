@@ -76,6 +76,8 @@ export function DateRangePicker({
         cursor="pointer"
         pr="40px"
         onClick={() => setIsOpen(true)}
+        fontSize="sm"
+        height="32px"
       />
       <Box
         position="absolute"

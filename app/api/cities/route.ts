@@ -1,17 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+import { prisma } from '@/lib/db';
 
 export async function GET(request: Request) {
   try {
@@ -41,7 +29,7 @@ export async function GET(request: Request) {
       ];
     }
 
-    const cities = await prisma.city.findMany({
+    const cities = await prisma.cities.findMany({
       where,
       orderBy: [
         { ville: 'asc' },

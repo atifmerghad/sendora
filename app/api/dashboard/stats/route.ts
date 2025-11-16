@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         businessId = currentUser.businessId;
       } else {
         // Fallback to UserBusiness join table
-        const userBusiness = await prisma.userBusiness.findFirst({
+        const userBusiness = await prisma.user_businesses.findFirst({
           where: { userId: userId },
         });
         if (userBusiness) {
@@ -93,10 +93,10 @@ export async function GET(request: NextRequest) {
 
     // Fetch counts
     const [totalParcels, totalPickups, totalInvoices, totalReturns] = await Promise.all([
-      prisma.parcel.count({ where: parcelWhere }),
-      prisma.pickup.count({ where: pickupWhere }),
-      prisma.invoice.count({ where: invoiceWhere }),
-      prisma.return.count({ where: returnWhere }),
+      prisma.parcels.count({ where: parcelWhere }),
+      prisma.pickups.count({ where: pickupWhere }),
+      prisma.invoices.count({ where: invoiceWhere }),
+      prisma.returns.count({ where: returnWhere }),
     ]);
 
     // Calculate previous period for comparison (last 30 days vs previous 30 days)
@@ -107,13 +107,13 @@ export async function GET(request: NextRequest) {
     previous30Days.setDate(previous30Days.getDate() - 30);
 
     const [currentParcels, previousParcels] = await Promise.all([
-      prisma.parcel.count({
+      prisma.parcels.count({
         where: {
           ...parcelWhere,
           dateCreation: { gte: last30Days },
         },
       }),
-      prisma.parcel.count({
+      prisma.parcels.count({
         where: {
           ...parcelWhere,
           dateCreation: { gte: previous30Days, lt: last30Days },
@@ -127,13 +127,13 @@ export async function GET(request: NextRequest) {
 
     // Calculate changes for other stats
     const [currentPickups, previousPickups] = await Promise.all([
-      prisma.pickup.count({
+      prisma.pickups.count({
         where: {
           ...pickupWhere,
           dateDemande: { gte: last30Days },
         },
       }),
-      prisma.pickup.count({
+      prisma.pickups.count({
         where: {
           ...pickupWhere,
           dateDemande: { gte: previous30Days, lt: last30Days },
@@ -146,13 +146,13 @@ export async function GET(request: NextRequest) {
       : '0';
 
     const [currentInvoices, previousInvoices] = await Promise.all([
-      prisma.invoice.count({
+      prisma.invoices.count({
         where: {
           ...invoiceWhere,
           dateEmission: { gte: last30Days },
         },
       }),
-      prisma.invoice.count({
+      prisma.invoices.count({
         where: {
           ...invoiceWhere,
           dateEmission: { gte: previous30Days, lt: last30Days },
@@ -165,13 +165,13 @@ export async function GET(request: NextRequest) {
       : '0';
 
     const [currentReturns, previousReturns] = await Promise.all([
-      prisma.return.count({
+      prisma.returns.count({
         where: {
           ...returnWhere,
           dateDemande: { gte: last30Days },
         },
       }),
-      prisma.return.count({
+      prisma.returns.count({
         where: {
           ...returnWhere,
           dateDemande: { gte: previous30Days, lt: last30Days },
@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
       : '0';
 
     // Get parcels by city
-    const parcelsByCity = await prisma.parcel.groupBy({
+    const parcelsByCity = await prisma.parcels.groupBy({
       by: ['ville'],
       where: parcelWhere,
       _count: {
@@ -207,7 +207,7 @@ export async function GET(request: NextRequest) {
     const sixMonthsAgo = new Date(now);
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    const parcelsOverTime = await prisma.parcel.findMany({
+    const parcelsOverTime = await prisma.parcels.findMany({
       where: {
         ...parcelWhere,
         dateCreation: { gte: sixMonthsAgo },
@@ -235,7 +235,7 @@ export async function GET(request: NextRequest) {
       });
 
     // Get revenue over time (from invoices)
-    const invoicesOverTime = await prisma.invoice.findMany({
+    const invoicesOverTime = await prisma.invoices.findMany({
       where: {
         ...invoiceWhere,
         dateEmission: { gte: sixMonthsAgo },
@@ -261,7 +261,7 @@ export async function GET(request: NextRequest) {
       });
 
     // Get refused parcels reasons (simplified - using statut)
-    const refusedParcels = await prisma.parcel.findMany({
+    const refusedParcels = await prisma.parcels.findMany({
       where: {
         ...parcelWhere,
         statut: 'refuse',
@@ -280,7 +280,7 @@ export async function GET(request: NextRequest) {
     ].filter(item => item.value > 0);
 
     // Get canceled parcels
-    const canceledParcels = await prisma.parcel.findMany({
+    const canceledParcels = await prisma.parcels.findMany({
       where: {
         ...parcelWhere,
         statut: 'annule',
@@ -295,7 +295,7 @@ export async function GET(request: NextRequest) {
     ].filter(item => item.value > 0);
 
     // Get returns statistics
-    const returnsStats = await prisma.return.groupBy({
+    const returnsStats = await prisma.returns.groupBy({
       by: ['statut'],
       where: returnWhere,
       _count: {

@@ -27,6 +27,7 @@ import { useRouter } from 'next/navigation';
 import { useColorModeValue } from '@/lib/useColorModeValue';
 import { useAuth } from '@/contexts/AuthContext';
 import { PermissionGate } from '@/components/PermissionGate';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
@@ -54,6 +55,7 @@ interface ChartData {
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isAdmin } = usePermissions();
   const bg = useColorModeValue('white', 'gray.800');
   const textColor = useColorModeValue('gray.700', 'gray.200');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -130,6 +132,19 @@ export default function DashboardPage() {
 
     fetchDashboardStats();
   }, [user?.id, dateFilter, dateType]);
+
+  // Redirect admin users to admin dashboard (only after mounted)
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && isAdmin && user && !isLoading) {
+      router.push('/dashboard/admin');
+    }
+  }, [mounted, isAdmin, user, router, isLoading]);
 
   const handleFilter = () => {
     // Filter is handled by useEffect when dateFilter or dateType changes

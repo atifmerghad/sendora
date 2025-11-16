@@ -35,6 +35,10 @@ import {
   ArrowUpFromLine,
   PackageX,
   Package2,
+  Shield,
+  Settings,
+  Database,
+  BarChart3,
 } from 'lucide-react';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useState, useEffect, useMemo } from 'react';
@@ -46,6 +50,8 @@ interface SubMenuItem {
   icon: React.ElementType;
   path: string;
   permission?: string; // Permission required to show this item
+  adminOnly?: boolean; // Only show for ADMIN users
+  clientOnly?: boolean; // Only show for CLIENT users (exclude ADMIN)
 }
 
 interface MenuItem {
@@ -54,30 +60,35 @@ interface MenuItem {
   path?: string;
   submenu?: SubMenuItem[];
   permission?: string; // Permission required to show this item
+  adminOnly?: boolean; // Only show for ADMIN users
+  clientOnly?: boolean; // Only show for CLIENT users (exclude ADMIN)
 }
 
 const menuItems: MenuItem[] = [
-  { labelKey: 'dashboard', icon: LayoutDashboard, path: '/dashboard', permission: 'dashboard' },
-  { labelKey: 'addParcel', icon: PackagePlus, path: '/dashboard/parcels/add', permission: 'gestionColis' },
-  { labelKey: 'parcelsList', icon: Package, path: '/dashboard/parcels', permission: 'gestionColis' },
-  { labelKey: 'requestPickup', icon: Truck, path: '/dashboard/pickups/add', permission: 'gestionRamassages' },
-  { labelKey: 'pickupsList', icon: TruckIcon, path: '/dashboard/pickups', permission: 'gestionRamassages' },
-  { labelKey: 'tickets', icon: FileText, path: '/dashboard/tickets', permission: 'mesTickets' },
+  // Client-only items (excluded for ADMIN)
+  { labelKey: 'dashboard', icon: LayoutDashboard, path: '/dashboard', permission: 'dashboard', clientOnly: true },
+  { labelKey: 'addParcel', icon: PackagePlus, path: '/dashboard/parcels/add', permission: 'gestionColis', clientOnly: true },
+  { labelKey: 'parcelsList', icon: Package, path: '/dashboard/parcels', permission: 'gestionColis', clientOnly: true },
+  { labelKey: 'requestPickup', icon: Truck, path: '/dashboard/pickups/add', permission: 'gestionRamassages', clientOnly: true },
+  { labelKey: 'pickupsList', icon: TruckIcon, path: '/dashboard/pickups', permission: 'gestionRamassages', clientOnly: true },
+  { labelKey: 'tickets', icon: FileText, path: '/dashboard/tickets', permission: 'mesTickets', clientOnly: true },
   {
     labelKey: 'billing',
     icon: Receipt,
     permission: 'gestionFactures',
+    clientOnly: true,
     submenu: [
       { labelKey: 'invoiceList', icon: FileText, path: '/dashboard/billing/invoices', permission: 'gestionFactures' },
       { labelKey: 'unbilledParcels', icon: Package, path: '/dashboard/billing/unbilled', permission: 'gestionFactures' },
     ]
   },
-  { labelKey: 'requestReturn', icon: RotateCcw, path: '/dashboard/returns/add', permission: 'gestionRetours' },
-  { labelKey: 'returnsList', icon: RotateCcwIcon, path: '/dashboard/returns', permission: 'gestionRetours' },
+  { labelKey: 'requestReturn', icon: RotateCcw, path: '/dashboard/returns/add', permission: 'gestionRetours', clientOnly: true },
+  { labelKey: 'returnsList', icon: RotateCcwIcon, path: '/dashboard/returns', permission: 'gestionRetours', clientOnly: true },
   { 
     labelKey: 'inventory', 
     icon: Warehouse,
     permission: 'gestionStock',
+    clientOnly: true,
     submenu: [
       { labelKey: 'productList', icon: List, path: '/dashboard/inventory/products', permission: 'gestionStock' },
       { labelKey: 'stockEntry', icon: ArrowDownToLine, path: '/dashboard/inventory/entry', permission: 'gestionStock' },
@@ -86,17 +97,32 @@ const menuItems: MenuItem[] = [
       { labelKey: 'packagingManagement', icon: Package2, path: '/dashboard/inventory/packaging', permission: 'gestionStock' },
     ]
   },
-  { labelKey: 'cities', icon: MapPin, path: '/dashboard/cities' }, // No permission required
+  { labelKey: 'cities', icon: MapPin, path: '/dashboard/cities', clientOnly: true }, // Client-only
   { 
     labelKey: 'team', 
     icon: Users,
+    clientOnly: true, // Client-only (admin has adminPanel instead)
     submenu: [
-      { labelKey: 'users', icon: User, path: '/dashboard/users' }, // Only ADMIN and CLIENT can access
+      { labelKey: 'users', icon: User, path: '/dashboard/users' },
     ]
   },
-  { labelKey: 'help', icon: HelpCircle, path: '/dashboard/help' }, // No permission required
-  { labelKey: 'api', icon: Code, path: '/dashboard/api' }, // No permission required
-  { labelKey: 'messages', icon: MessageSquare, path: '/dashboard/messages', permission: 'chat' },
+  { labelKey: 'help', icon: HelpCircle, path: '/dashboard/help', clientOnly: true }, // Client-only
+  { labelKey: 'api', icon: Code, path: '/dashboard/api', clientOnly: true }, // Client-only
+  { labelKey: 'messages', icon: MessageSquare, path: '/dashboard/messages', permission: 'chat', clientOnly: true },
+  
+  // Admin-only menu items (shown only to ADMIN users)
+  { labelKey: 'adminPanel', icon: Shield, path: '/dashboard/admin', adminOnly: true },
+  { labelKey: 'adminParcels', icon: Package, path: '/dashboard/admin/parcels', adminOnly: true },
+  { 
+    labelKey: 'adminSettings', 
+    icon: Settings, 
+    adminOnly: true,
+    submenu: [
+      { labelKey: 'systemSettings', icon: Settings, path: '/dashboard/admin/settings', adminOnly: true },
+      { labelKey: 'databaseManagement', icon: Database, path: '/dashboard/admin/database', adminOnly: true },
+      { labelKey: 'analytics', icon: BarChart3, path: '/dashboard/admin/analytics', adminOnly: true },
+    ]
+  },
 ];
 
 export function Sidebar() {
@@ -113,26 +139,50 @@ export function Sidebar() {
   const textColor = useColorModeValue('gray.700', 'gray.200');
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
 
-  // Filter menu items based on permissions
+  // Filter menu items based on permissions and admin status
   const visibleMenuItems = useMemo(() => {
     return menuItems.filter(item => {
-      // If no permission specified, always show (e.g., help, cities, api)
+      // Admin-only items: only show to ADMIN users
+      if (item.adminOnly) {
+        return isAdmin;
+      }
+      
+      // Client-only items: exclude for ADMIN users
+      if (item.clientOnly && isAdmin) {
+        return false;
+      }
+      
+      // If no permission specified, check client-only flag
       if (!item.permission) {
-        // Special case for team menu: only ADMIN and CLIENT can see it
-        if (item.labelKey === 'team') {
-          return isAdmin || isClient;
+        // Client-only items should not show for admins
+        if (item.clientOnly && isAdmin) {
+          return false;
         }
         return true;
+      }
+      
+      // For ADMIN users, skip client-only items even if they have permissions
+      if (item.clientOnly && isAdmin) {
+        return false;
       }
       
       // Check if user has the required permission
       return hasPermission(item.permission);
     }).map(item => {
-      // Filter submenu items based on permissions
+      // Filter submenu items based on permissions and admin status
       if (item.submenu) {
         return {
           ...item,
           submenu: item.submenu.filter(subItem => {
+            // Admin-only submenu items
+            if (subItem.adminOnly) {
+              return isAdmin;
+            }
+            // Client-only submenu items: exclude for ADMIN users
+            if (subItem.clientOnly && isAdmin) {
+              return false;
+            }
+            // Permission-based submenu items
             if (!subItem.permission) return true;
             return hasPermission(subItem.permission);
           }),

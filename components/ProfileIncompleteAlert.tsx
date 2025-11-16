@@ -11,7 +11,7 @@ import {
   Text,
 } from '@chakra-ui/react';
 import { AlertCircle } from 'lucide-react';
-import { useEffect, useRef, Suspense } from 'react';
+import { useEffect, useRef, Suspense, useState } from 'react';
 
 function ProfileIncompleteAlertContent() {
   const { user } = useAuth();
@@ -19,6 +19,17 @@ function ProfileIncompleteAlertContent() {
   const pathname = usePathname();
   const { isCollapsed } = useSidebar();
   const alertRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [hasBankingInfo, setHasBankingInfo] = useState(true); // Default to true to avoid flash
+
+  // Only check localStorage after component is mounted
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== 'undefined') {
+      const bankingInfo = localStorage.getItem('sendora_banking_info');
+      setHasBankingInfo(!!bankingInfo);
+    }
+  }, []);
 
   // Update CSS variable with alert height for dynamic padding
   // This hook must be called before any early returns
@@ -69,11 +80,11 @@ function ProfileIncompleteAlertContent() {
   // Check if profile is incomplete
   if (!user) return null;
 
-  // Check if banking info exists (stored in localStorage for demo)
-  const bankingInfo = localStorage.getItem('sendora_banking_info');
+  // Don't show until mounted to avoid hydration mismatch
+  if (!mounted) return null;
   
   // If banking info exists, don't show alert
-  if (bankingInfo) return null;
+  if (hasBankingInfo) return null;
 
   const handleCompleteProfile = () => {
     router.push('/dashboard/profile?tab=banking');

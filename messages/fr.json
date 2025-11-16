@@ -120,7 +120,13 @@
     "help": "Centre d'aide",
     "api": "Intégration API",
     "messages": "Messages",
-    "profile": "Mon Profil"
+    "profile": "Mon Profil",
+    "adminPanel": "Tableau de bord Admin",
+    "adminParcels": "Colis",
+    "adminSettings": "Paramètres Admin",
+    "systemSettings": "Paramètres système",
+    "databaseManagement": "Gestion de la base de données",
+    "analytics": "Analyses"
   },
   "header": {
     "notifications": "Notifications",
