@@ -23,6 +23,9 @@ import {
   DialogBody,
   DialogFooter,
   DialogCloseTrigger,
+  SimpleGrid,
+  Separator,
+  Spinner,
 } from '@chakra-ui/react';
 import { TanStackTable } from '@/components/TanStackTable';
 import { type ColumnDef } from '@tanstack/react-table';
@@ -44,6 +47,9 @@ export default function UsersPage() {
   const [total, setTotal] = useState(0);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [viewUserId, setViewUserId] = useState<string | null>(null);
+  const [viewUser, setViewUser] = useState<User | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
   const [mainAccountIdFromAPI, setMainAccountIdFromAPI] = useState<string | null>(null);
   const itemsPerPage = 50;
 
@@ -111,10 +117,29 @@ export default function UsersPage() {
     return true;
   }, [currentUser, mainAccountIdFromAPI]);
 
-  const handleView = useCallback((user: User) => {
-    // Navigate to user details page or show modal
-    router.push(`/dashboard/users/${user.id}`);
-  }, [router]);
+  const handleView = useCallback(async (user: User) => {
+    setViewUserId(user.id);
+    setIsLoadingUser(true);
+    
+    try {
+      // Fetch full user details from API
+      const response = await fetch(`/api/users/${user.id}`);
+      const data = await response.json();
+      
+      if (response.ok && data.user) {
+        setViewUser(data.user);
+      } else {
+        // Fallback to the user from the list
+        setViewUser(user);
+      }
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+      // Fallback to the user from the list
+      setViewUser(user);
+    } finally {
+      setIsLoadingUser(false);
+    }
+  }, []);
 
   const handleEdit = useCallback((user: User) => {
     // Navigate to edit user page
@@ -456,6 +481,180 @@ export default function UsersPage() {
           </>
         )}
       </Card>
+
+      {/* User Details Dialog */}
+      {viewUserId && (
+        <DialogRoot 
+          open={!!viewUserId}
+          onOpenChange={(details) => {
+            if (!details.open) {
+              setViewUserId(null);
+              setViewUser(null);
+            }
+          }}
+        >
+          <DialogBackdrop />
+          <DialogPositioner>
+            <DialogContent maxW="600px" maxH="90vh" overflowY="auto">
+              <DialogHeader>
+                <DialogTitle>Détails de l'utilisateur</DialogTitle>
+              </DialogHeader>
+              <DialogBody>
+                {isLoadingUser ? (
+                  <VStack py={8}>
+                    <Spinner size="lg" color="blue.500" />
+                    <Text>Chargement...</Text>
+                  </VStack>
+                ) : viewUser ? (
+                  <VStack align="stretch" gap={6}>
+                    {/* Avatar and Basic Info */}
+                    <VStack gap={4}>
+                      <AvatarRoot size="xl" bg="blue.500" color="white">
+                        {viewUser.imageProfil && (
+                          <AvatarImage src={viewUser.imageProfil} alt={`${viewUser.prenom} ${viewUser.nom}`} />
+                        )}
+                        <AvatarFallback>
+                          {`${viewUser.prenom[0] || ''}${viewUser.nom[0] || ''}`.toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </AvatarRoot>
+                      <VStack gap={1}>
+                        <Heading size="md">{viewUser.prenom} {viewUser.nom}</Heading>
+                        <Text color="gray.500">{viewUser.email}</Text>
+                      </VStack>
+                    </VStack>
+
+                    <Separator />
+
+                    {/* User Information */}
+                    <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+                      <Box>
+                        <Text fontSize="xs" color="gray.500" mb={1}>Nom</Text>
+                        <Text fontWeight="medium">{viewUser.nom}</Text>
+                      </Box>
+                      <Box>
+                        <Text fontSize="xs" color="gray.500" mb={1}>Prénom</Text>
+                        <Text fontWeight="medium">{viewUser.prenom}</Text>
+                      </Box>
+                      <Box>
+                        <Text fontSize="xs" color="gray.500" mb={1}>Email</Text>
+                        <Text fontWeight="medium">{viewUser.email}</Text>
+                      </Box>
+                      <Box>
+                        <Text fontSize="xs" color="gray.500" mb={1}>Téléphone</Text>
+                        <Text fontWeight="medium">{viewUser.telephone}</Text>
+                      </Box>
+                      {viewUser.deuxiemeTelephone && (
+                        <Box>
+                          <Text fontSize="xs" color="gray.500" mb={1}>Deuxième téléphone</Text>
+                          <Text fontWeight="medium">{viewUser.deuxiemeTelephone}</Text>
+                        </Box>
+                      )}
+                      {viewUser.adresse && (
+                        <Box>
+                          <Text fontSize="xs" color="gray.500" mb={1}>Adresse</Text>
+                          <Text fontWeight="medium">{viewUser.adresse}</Text>
+                        </Box>
+                      )}
+                      <Box>
+                        <Text fontSize="xs" color="gray.500" mb={1}>Rôle</Text>
+                        <Badge 
+                          colorScheme={
+                            viewUser.roleName === 'ADMIN' ? 'purple' :
+                            viewUser.roleName === 'LIVREUR' ? 'orange' :
+                            viewUser.roleName === 'MEMBER' ? 'green' : 'blue'
+                          }
+                          px={2}
+                          py={1}
+                          borderRadius="md"
+                        >
+                          {viewUser.roleName === 'ADMIN' ? 'Admin' :
+                           viewUser.roleName === 'LIVREUR' ? 'Livreur' :
+                           viewUser.roleName === 'MEMBER' ? 'Membre' : 'Client'}
+                        </Badge>
+                      </Box>
+                      <Box>
+                        <Text fontSize="xs" color="gray.500" mb={1}>État</Text>
+                        <Badge 
+                          colorScheme={viewUser.etat === 'Active' ? 'green' : 'red'}
+                          px={2}
+                          py={1}
+                          borderRadius="md"
+                        >
+                          {viewUser.etat || 'En attente'}
+                        </Badge>
+                      </Box>
+                      {viewUser.createdAt && (
+                        <Box>
+                          <Text fontSize="xs" color="gray.500" mb={1}>Date de création</Text>
+                          <Text fontWeight="medium">
+                            {new Date(viewUser.createdAt).toLocaleDateString('fr-FR', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </Text>
+                        </Box>
+                      )}
+                    </SimpleGrid>
+
+                    {/* Permissions */}
+                    {viewUser.permissions && (
+                      <>
+                        <Separator />
+                        <Box>
+                          <Text fontSize="sm" fontWeight="semibold" mb={3}>Permissions</Text>
+                          <SimpleGrid columns={{ base: 1, md: 2 }} gap={2}>
+                            {typeof viewUser.permissions === 'string' ? (
+                              // Handle old string format
+                              viewUser.permissions.split(',').map((perm, idx) => (
+                                <Badge key={idx} colorScheme="blue" px={2} py={1} borderRadius="md">
+                                  {perm.trim()}
+                                </Badge>
+                              ))
+                            ) : Array.isArray(viewUser.permissions) ? (
+                              // Handle array format
+                              viewUser.permissions.map((perm: string, idx: number) => (
+                                <Badge key={idx} colorScheme="blue" px={2} py={1} borderRadius="md">
+                                  {perm}
+                                </Badge>
+                              ))
+                            ) : null}
+                          </SimpleGrid>
+                        </Box>
+                      </>
+                    )}
+                  </VStack>
+                ) : (
+                  <Text>Impossible de charger les détails de l'utilisateur</Text>
+                )}
+              </DialogBody>
+              <DialogFooter>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setViewUserId(null);
+                    setViewUser(null);
+                  }}
+                >
+                  Fermer
+                </Button>
+                {viewUser && (
+                  <Button
+                    colorScheme="blue"
+                    onClick={() => {
+                      setViewUserId(null);
+                      setViewUser(null);
+                      handleEdit(viewUser);
+                    }}
+                  >
+                    Modifier
+                  </Button>
+                )}
+              </DialogFooter>
+            </DialogContent>
+          </DialogPositioner>
+        </DialogRoot>
+      )}
 
       {/* Delete Confirmation Dialog */}
       {deleteUserId && (

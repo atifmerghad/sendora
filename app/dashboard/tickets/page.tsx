@@ -14,6 +14,7 @@ import { Search, Plus } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
+import { PermissionGate } from '@/components/PermissionGate';
 
 interface Ticket {
   id: string;
@@ -71,7 +72,8 @@ export default function TicketsPage() {
     // Search is handled by useEffect when searchTerm changes
   };
   return (
-    <Box>
+    <PermissionGate permission="mesTickets">
+      <Box>
       <HStack justify="space-between" mb={6}>
         <Heading size="lg">Mes Tickets</Heading>
         <Button colorScheme="blue">
@@ -125,7 +127,8 @@ export default function TicketsPage() {
           </Box>
         )}
       </Card>
-    </Box>
+      </Box>
+    </PermissionGate>
   );
 }
 

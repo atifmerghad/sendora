@@ -366,3 +366,4 @@ CREATE INDEX "user_businesses_userId_idx" ON "user_businesses"("userId");
 -- CreateIndex
 CREATE INDEX "user_businesses_businessId_idx" ON "user_businesses"("businessId");
 
+

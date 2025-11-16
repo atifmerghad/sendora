@@ -13,7 +13,10 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-cities": "tsx prisma/seed-cities.ts",
-    "db:seed-roles": "tsx prisma/seed-roles.ts"
+    "db:seed-roles": "tsx prisma/seed-roles.ts",
+    "db:seed-permissions": "tsx prisma/seed-permissions.ts",
+    "db:seed-account-states": "tsx prisma/seed-account-states.ts",
+    "db:update-account-states": "tsx prisma/update-users-account-state.ts"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.0.0",

@@ -20,6 +20,7 @@ import { DateRangePicker } from '@/components/DateRangePicker';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useAuth } from '@/contexts/AuthContext';
+import { PermissionGate } from '@/components/PermissionGate';
 
 interface Pickup {
   id: string;
@@ -236,7 +237,8 @@ export default function PickupsPage() {
 
 
   return (
-    <Box>
+    <PermissionGate permission="gestionRamassages">
+      <Box>
       <HStack justify="space-between" mb={6} flexWrap="wrap" gap={4}>
         <Heading size={{ base: 'md', md: 'lg' }}>Ramassages</Heading>
         <Button 
@@ -362,6 +364,7 @@ export default function PickupsPage() {
           </>
         )}
       </Card>
-    </Box>
+      </Box>
+    </PermissionGate>
   );
 }

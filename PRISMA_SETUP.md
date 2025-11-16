@@ -129,3 +129,12 @@ Opens at `http://localhost:5555` - great for development and debugging!
 - Migrations are tracked in git
 - Always run `npm run db:generate` after pulling changes that modify the schema
 - Use migrations for production, `db push` only for rapid prototyping
+
+
+cd /Users/atif/Desktop/Sendora && npm run db:seed-permissions
+
+
+cd /Users/atif/Desktop/Sendora && 
+sqlite3 prisma/dev.db "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('user_businesses', 'businesses');"
+
+sqlite3 prisma/dev.db "SELECT *FROM User"

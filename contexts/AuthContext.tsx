@@ -8,8 +8,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // Mark as mounted first
+    setMounted(true);
+    
     // Load user from localStorage on mount
     if (typeof window !== 'undefined') {
       const storedUser = localStorage.getItem('sendora_user');

@@ -52,8 +52,10 @@ function getPrismaClient(): PrismaClient {
     const hasApiKey = cachedAny.apiKey && typeof cachedAny.apiKey.findMany === 'function';
     const hasBusiness = cachedAny.business && typeof cachedAny.business.findMany === 'function';
     const hasUserBusiness = cachedAny.userBusiness && typeof cachedAny.userBusiness.findMany === 'function';
+    const hasPermission = cachedAny.permission && typeof cachedAny.permission.findMany === 'function';
+    const hasUserPermission = cachedAny.userPermission && typeof cachedAny.userPermission.findMany === 'function';
     
-    if (!hasWebhook || !hasApiKey || !hasBusiness || !hasUserBusiness) {
+    if (!hasWebhook || !hasApiKey || !hasBusiness || !hasUserBusiness || !hasPermission || !hasUserPermission) {
       // Cached instance is outdated - it doesn't have the new models
       console.warn('[Prisma] Cached instance is outdated (missing models), creating new instance...');
       // Disconnect old instance gracefully

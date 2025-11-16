@@ -19,21 +19,30 @@ export async function createUser(userData: SignupData, businessId?: string): Pro
   // Get roleId, default to CLIENT (id=1)
   const roleId = userData.roleId || await getClientRoleId();
   
+  // Get ACTIVE account state ID (id=1) as default
+  const activeState = await prisma.accountState.findUnique({
+    where: { code: 'ACTIVE' },
+  });
+  if (!activeState) {
+    throw new Error('ACTIVE account state not found. Please run db:seed-account-states first.');
+  }
+  
   const newUser = await prisma.user.create({
     data: {
       nom: userData.nom,
       prenom: userData.prenom,
       email: userData.email,
-      password: hashedPassword,
+    password: hashedPassword,
       telephone: userData.telephone,
       roleId: roleId,
+      accountStateId: activeState.id, // Default to ACTIVE
       businessId: businessId || null,
     },
-    include: { role: true }, // Include role relation
+    include: { role: true, accountState: true }, // Include role and accountState relations
   });
   
   // Get business info to populate nomMarque, siteUrl, ville for compatibility
-  const business = businessId ? await prisma.business.findUnique({
+  const business = businessId ? await prisma.businesses.findUnique({
     where: { id: businessId },
   }) : null;
   
@@ -59,7 +68,16 @@ export async function createUser(userData: SignupData, businessId?: string): Pro
     permissions: newUser.permissions || null,
     deuxiemeTelephone: newUser.deuxiemeTelephone || null,
     adresse: newUser.adresse || null,
-    etat: newUser.etat || null,
+    accountStateId: newUser.accountStateId,
+    accountState: newUser.accountState ? {
+      id: newUser.accountState.id,
+      name: newUser.accountState.name,
+      code: newUser.accountState.code,
+      createdAt: newUser.accountState.createdAt.toISOString(),
+      updatedAt: newUser.accountState.updatedAt.toISOString(),
+    } : undefined,
+    // Keep etat for backward compatibility (deprecated)
+    etat: newUser.accountState?.name || null,
     imageProfil: newUser.imageProfil || null,
     createdAt: newUser.createdAt.toISOString(),
   };
@@ -68,21 +86,34 @@ export async function createUser(userData: SignupData, businessId?: string): Pro
 export async function findUserByEmail(email: string): Promise<User | null> {
   const user = await prisma.user.findUnique({
     where: { email },
-    include: { role: true }, // Include role relation
+    include: { 
+      role: true, 
+      accountState: true,
+      user_permissions: {
+        include: {
+          permissions: true,
+        },
+      },
+    }, // Include role, accountState and permissions relations
   });
   
   if (!user) return null;
   
   // Get user's business to populate nomMarque, siteUrl, ville
   // Try direct businessId first, then fallback to UserBusiness join table
-  const business = user.businessId ? await prisma.business.findUnique({
+  const business = user.businessId ? await prisma.businesses.findUnique({
     where: { id: user.businessId },
   }) : null;
   
-  const userBusiness = !business ? await prisma.userBusiness.findFirst({
+  const userBusiness = !business ? await prisma.user_businesses.findFirst({
     where: { userId: user.id },
-    include: { business: true },
+    include: { businesses: true },
   }) : null;
+
+  // Extract permissions as array of permission names
+  const userPermissions = (user.user_permissions || [])
+    .map(up => up.permissions?.name)
+    .filter(Boolean) as string[];
 
   return {
     id: user.id,
@@ -91,9 +122,9 @@ export async function findUserByEmail(email: string): Promise<User | null> {
     email: user.email,
     password: user.password,
     telephone: user.telephone,
-    nomMarque: business?.businessName || userBusiness?.business.businessName || '', // Get from business
-    siteUrl: business?.siteUrl || userBusiness?.business.siteUrl || '', // Get from business
-    ville: business?.ville || userBusiness?.business.ville || '', // Get from business
+    nomMarque: business?.businessName || userBusiness?.businesses.businessName || '', // Get from business
+    siteUrl: business?.siteUrl || userBusiness?.businesses.siteUrl || '', // Get from business
+    ville: business?.ville || userBusiness?.businesses.ville || '', // Get from business
     roleId: user.roleId,
     roleName: user.role?.name || 'CLIENT',
     role: user.role ? {
@@ -102,10 +133,19 @@ export async function findUserByEmail(email: string): Promise<User | null> {
       createdAt: user.role.createdAt.toISOString(),
       updatedAt: user.role.updatedAt.toISOString(),
     } : undefined,
-    permissions: user.permissions || null,
+    permissions: userPermissions.length > 0 ? userPermissions : null,
     deuxiemeTelephone: user.deuxiemeTelephone || null,
     adresse: user.adresse || null,
-    etat: user.etat || null,
+    accountStateId: user.accountStateId,
+    accountState: user.accountState ? {
+      id: user.accountState.id,
+      name: user.accountState.name,
+      code: user.accountState.code,
+      createdAt: user.accountState.createdAt.toISOString(),
+      updatedAt: user.accountState.updatedAt.toISOString(),
+    } : undefined,
+    // Keep etat for backward compatibility (deprecated)
+    etat: user.accountState?.name || null,
     imageProfil: user.imageProfil || null,
     createdAt: user.createdAt.toISOString(),
   };
@@ -118,21 +158,34 @@ export async function verifyPassword(plainPassword: string, hashedPassword: stri
 export async function getUserById(id: string): Promise<User | null> {
   const user = await prisma.user.findUnique({
     where: { id },
-    include: { role: true }, // Include role relation
+    include: { 
+      role: true, 
+      accountState: true,
+      user_permissions: {
+        include: {
+          permissions: true,
+        },
+      },
+    }, // Include role, accountState and permissions relations
   });
   
   if (!user) return null;
   
   // Get user's business to populate nomMarque, siteUrl, ville
   // Try direct businessId first, then fallback to UserBusiness join table
-  const business = user.businessId ? await prisma.business.findUnique({
+  const business = user.businessId ? await prisma.businesses.findUnique({
     where: { id: user.businessId },
   }) : null;
   
-  const userBusiness = !business ? await prisma.userBusiness.findFirst({
+  const userBusiness = !business ? await prisma.user_businesses.findFirst({
     where: { userId: user.id },
-    include: { business: true },
+    include: { businesses: true },
   }) : null;
+
+  // Extract permissions as array of permission names
+  const userPermissions = (user.user_permissions || [])
+    .map(up => up.permissions?.name)
+    .filter(Boolean) as string[];
 
   return {
     id: user.id,
@@ -141,9 +194,9 @@ export async function getUserById(id: string): Promise<User | null> {
     email: user.email,
     password: user.password,
     telephone: user.telephone,
-    nomMarque: business?.businessName || userBusiness?.business.businessName || '', // Get from business
-    siteUrl: business?.siteUrl || userBusiness?.business.siteUrl || '', // Get from business
-    ville: business?.ville || userBusiness?.business.ville || '', // Get from business
+    nomMarque: business?.businessName || userBusiness?.businesses.businessName || '', // Get from business
+    siteUrl: business?.siteUrl || userBusiness?.businesses.siteUrl || '', // Get from business
+    ville: business?.ville || userBusiness?.businesses.ville || '', // Get from business
     roleId: user.roleId,
     roleName: user.role?.name || 'CLIENT',
     role: user.role ? {
@@ -152,10 +205,19 @@ export async function getUserById(id: string): Promise<User | null> {
       createdAt: user.role.createdAt.toISOString(),
       updatedAt: user.role.updatedAt.toISOString(),
     } : undefined,
-    permissions: user.permissions || null,
+    permissions: userPermissions.length > 0 ? userPermissions : null,
     deuxiemeTelephone: user.deuxiemeTelephone || null,
     adresse: user.adresse || null,
-    etat: user.etat || null,
+    accountStateId: user.accountStateId,
+    accountState: user.accountState ? {
+      id: user.accountState.id,
+      name: user.accountState.name,
+      code: user.accountState.code,
+      createdAt: user.accountState.createdAt.toISOString(),
+      updatedAt: user.accountState.updatedAt.toISOString(),
+    } : undefined,
+    // Keep etat for backward compatibility (deprecated)
+    etat: user.accountState?.name || null,
     imageProfil: user.imageProfil || null,
     createdAt: user.createdAt.toISOString(),
   };

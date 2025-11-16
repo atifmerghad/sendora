@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         currentUserBusinessId = currentUser.businessId;
       } else {
         // Fallback to UserBusiness join table
-        const userBusiness = await prisma.userBusiness.findFirst({
+        const userBusiness = await prisma.user_businesses.findFirst({
           where: { userId: currentUserId },
         });
         if (userBusiness) {
@@ -59,13 +59,13 @@ export async function GET(request: NextRequest) {
       });
 
       // Also get users from UserBusiness join table
-      const userBusinessRelations = await prisma.userBusiness.findMany({
+      const userBusinessRelations = await prisma.user_businesses.findMany({
         where: { businessId: currentUserBusinessId },
-        include: { user: true },
+        include: { users: true },
       });
 
       // Combine and deduplicate users
-      const usersFromJoin = userBusinessRelations.map(ub => ub.user);
+      const usersFromJoin = userBusinessRelations.map(ub => ub.users);
       const allUsersMap = new Map();
       
       // Add users with direct businessId
@@ -115,24 +115,26 @@ export async function GET(request: NextRequest) {
     const usersWithRelations = await Promise.all(
       users.map(async (user) => {
         try {
-          // Fetch user with role and business relations
+          // Fetch user with role, accountState and business relations
           const userWithRole = await prisma.user.findUnique({
             where: { id: user.id },
             include: { 
               role: true,
-              business: true,
+              accountState: true,
+              businesses: true,
             },
           });
 
-          const userBusiness = !userWithRole?.business ? await prisma.userBusiness.findFirst({
+          const userBusiness = !userWithRole?.businesses ? await prisma.user_businesses.findFirst({
             where: { userId: user.id },
-            include: { business: true },
+            include: { businesses: true },
           }) : null;
 
           return {
             ...user,
             role: userWithRole?.role || null,
-            business: userWithRole?.business || userBusiness?.business || null,
+            accountState: userWithRole?.accountState || null,
+            business: userWithRole?.businesses || userBusiness?.businesses || null,
           };
         } catch (error) {
           // If query fails, return user without relations
@@ -140,6 +142,7 @@ export async function GET(request: NextRequest) {
           return {
             ...user,
             role: null,
+            accountState: null,
             business: null,
           };
         }
@@ -155,12 +158,18 @@ export async function GET(request: NextRequest) {
       telephone: user.telephone,
       deuxiemeTelephone: user.deuxiemeTelephone,
       adresse: user.adresse,
-      etat: user.etat,
+      accountStateId: user.accountStateId,
+      accountState: user.accountState ? {
+        id: user.accountState.id,
+        name: user.accountState.name,
+        code: user.accountState.code,
+      } : null,
+      etat: user.accountState?.name || null, // Backward compatibility
       roleId: user.roleId,
       roleName: user.role?.name || 'CLIENT',
-      permissions: user.permissions ? JSON.parse(user.permissions) : null,
+      permissions: null, // Permissions are now in user_permissions table
       imageProfil: user.imageProfil,
-      nomMarque: user.business?.businessName || '',
+      nomMarque: user.business?.businessName || '', // business is set from userWithRole?.businesses || userBusiness?.businesses
       siteUrl: user.business?.siteUrl || '',
       ville: user.business?.ville || '',
       createdAt: user.createdAt.toISOString().split('T')[0],
@@ -195,22 +204,91 @@ export async function POST(request: NextRequest) {
     const telephone = formData.get('telephone') as string;
     const deuxiemeTelephone = formData.get('deuxiemeTelephone') as string | null;
     const adresse = formData.get('adresse') as string | null;
-    const etat = formData.get('etat') as string | null;
+    const accountStateIdStr = formData.get('accountStateId') as string | null;
+    const etatName = formData.get('etat') as string | null; // Backward compatibility: name like "Active"
     const permissions = formData.get('permissions') as string;
     const currentUserId = formData.get('currentUserId') as string | null; // User creating the new user
     const imageProfil = formData.get('imageProfil') as File | null;
 
-    // Get CLIENT role ID (default role for new users)
-    const clientRole = await prisma.role.findUnique({
-      where: { name: 'CLIENT' },
+    // Get ACTIVE account state ID as default
+    const activeState = await prisma.accountState.findUnique({
+      where: { code: 'ACTIVE' },
     });
-    if (!clientRole) {
+    if (!activeState) {
       return NextResponse.json(
-        { error: 'Rôle CLIENT introuvable. Veuillez exécuter db:seed-roles.' },
+        { error: 'État de compte ACTIVE introuvable. Veuillez exécuter db:seed-account-states.' },
         { status: 500 }
       );
     }
-    const roleId = clientRole.id; // Always CLIENT for new users
+
+    // Get accountStateId: use provided accountStateId, or map from etat name, or default to ACTIVE
+    let accountStateId = activeState.id;
+    if (accountStateIdStr) {
+      accountStateId = parseInt(accountStateIdStr);
+    } else if (etatName) {
+      // Map state name to accountStateId
+      const accountState = await prisma.accountState.findFirst({
+        where: { name: etatName },
+      });
+      if (accountState) {
+        accountStateId = accountState.id;
+      }
+    }
+
+    // Get current user's role for permission checks
+    let currentUserRoleName = null;
+    if (currentUserId) {
+      const currentUser = await prisma.user.findUnique({
+        where: { id: currentUserId },
+        include: { role: true },
+      });
+      currentUserRoleName = currentUser?.role?.name || null;
+    }
+
+    // Get role ID for new user
+    let roleId: number;
+    const requestedRoleId = formData.get('roleId') ? parseInt(formData.get('roleId') as string) : null;
+    
+    // CLIENT can only create MEMBER users
+    if (currentUserRoleName === 'CLIENT') {
+      const memberRole = await prisma.role.findUnique({
+        where: { name: 'MEMBER' },
+      });
+      if (!memberRole) {
+        return NextResponse.json(
+          { error: 'Rôle MEMBER introuvable. Veuillez exécuter db:seed-roles.' },
+          { status: 500 }
+        );
+      }
+      
+      // Force MEMBER role for CLIENT
+      roleId = memberRole.id;
+      
+      // If CLIENT tries to create with a different role, reject it
+      if (requestedRoleId && requestedRoleId !== memberRole.id) {
+        const requestedRole = await prisma.role.findUnique({
+          where: { id: requestedRoleId },
+        });
+        if (requestedRole && requestedRole.name !== 'MEMBER') {
+          return NextResponse.json(
+            { error: 'Vous ne pouvez créer que des utilisateurs avec le rôle MEMBER' },
+            { status: 403 }
+          );
+        }
+      }
+    } else {
+      // ADMIN can create any role, default to CLIENT if not specified
+      const clientRole = await prisma.role.findUnique({
+        where: { name: 'CLIENT' },
+      });
+      if (!clientRole) {
+        return NextResponse.json(
+          { error: 'Rôle CLIENT introuvable. Veuillez exécuter db:seed-roles.' },
+          { status: 500 }
+        );
+      }
+      roleId = requestedRoleId || clientRole.id; // Use requested role or default to CLIENT
+    }
 
     // Validate required fields
     if (!prenom || !nom || !email || !password || !telephone) {
@@ -233,7 +311,7 @@ export async function POST(request: NextRequest) {
         businessId = currentUser.businessId;
       } else {
         // Fallback to UserBusiness join table
-        const userBusiness = await prisma.userBusiness.findFirst({
+        const userBusiness = await prisma.user_businesses.findFirst({
           where: { userId: currentUserId },
         });
         if (userBusiness) {
@@ -288,7 +366,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create user with businessId and roleId
+    // Create user with businessId, roleId and accountStateId
     const user = await prisma.user.create({
       data: {
         prenom,
@@ -298,18 +376,18 @@ export async function POST(request: NextRequest) {
         telephone,
         deuxiemeTelephone: deuxiemeTelephone || null,
         adresse: adresse || null,
-        etat: etat || 'Active',
-        roleId: roleId, // Always CLIENT (id=1) for new users
-        permissions: permissions || null,
+        accountStateId: accountStateId, // Use accountStateId instead of etat
+        roleId: roleId,
         imageProfil: imageProfilPath,
         businessId: businessId, // Set businessId directly on user
       },
-      include: { role: true }, // Include role relation
+      include: { role: true, accountState: true }, // Include role and accountState relations
     });
 
     // Link user to the same business as the creator
-    await prisma.userBusiness.create({
+    await prisma.user_businesses.create({
       data: {
+        id: crypto.randomUUID(), // Generate unique ID for user_businesses
         userId: user.id,
         businessId: businessId,
         role: 'member', // Default role in the business
@@ -324,10 +402,10 @@ export async function POST(request: NextRequest) {
       telephone: user.telephone,
       deuxiemeTelephone: user.deuxiemeTelephone,
       adresse: user.adresse,
-      etat: user.etat,
+      etat: user.accountState?.name || null, // Backward compatibility
       roleId: user.roleId,
       roleName: user.role?.name || 'CLIENT',
-      permissions: user.permissions ? JSON.parse(user.permissions) : null,
+      permissions: null, // Permissions are now in user_permissions table
       imageProfil: user.imageProfil,
       createdAt: user.createdAt.toISOString().split('T')[0],
     }, { status: 201 });

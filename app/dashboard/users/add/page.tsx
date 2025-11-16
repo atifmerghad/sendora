@@ -54,9 +54,11 @@ export default function AddUserPage() {
     deuxiemeTelephone: '',
     adresse: '',
     etat: 'Active',
+    roleId: 0, // Will be set based on current user's role
     imageProfil: null as File | null,
   });
 
+  const [roles, setRoles] = useState<Array<{ id: number; name: string }>>([]);
   const [permissions, setPermissions] = useState<Permissions>({
     dashboard: false,
     gestionColis: false,
@@ -72,6 +74,44 @@ export default function AddUserPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showPasswordStrength, setShowPasswordStrength] = useState(false);
+
+  // Calculate permissions
+  const currentUserRole = currentUser?.roleName || currentUser?.role?.name || '';
+  const isClient = currentUserRole === 'CLIENT';
+  const availableRoles = roles.filter(role => 
+    !isClient || role.name === 'MEMBER' // CLIENT can only create MEMBER
+  );
+
+  // Load roles on mount and set default roleId
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        const rolesResponse = await fetch('/api/roles');
+        if (rolesResponse.ok) {
+          const rolesData = await rolesResponse.json();
+          const loadedRoles = rolesData.roles || [];
+          setRoles(loadedRoles);
+          
+          // Set default roleId: MEMBER for CLIENT, CLIENT for others
+          if (isClient) {
+            const memberRole = loadedRoles.find((r: any) => r.name === 'MEMBER');
+            if (memberRole) {
+              setFormData(prev => ({ ...prev, roleId: memberRole.id }));
+            }
+          } else {
+            const clientRole = loadedRoles.find((r: any) => r.name === 'CLIENT');
+            if (clientRole) {
+              setFormData(prev => ({ ...prev, roleId: clientRole.id }));
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading roles:', error);
+      }
+    };
+    
+    loadRoles();
+  }, [isClient]);
 
   // Calculate password strength
   const passwordStrength = useMemo(() => {
@@ -102,8 +142,11 @@ export default function AddUserPage() {
     }
   };
 
-  const handlePermissionChange = (permission: keyof Permissions, checked: boolean | 'indeterminate') => {
-    setPermissions(prev => ({ ...prev, [permission]: checked === true }));
+  const handlePermissionChange = (permission: keyof Permissions, checked: boolean | 'indeterminate' | boolean[]) => {
+    const isChecked = Array.isArray(checked) 
+      ? checked.includes(true)
+      : checked === true;
+    setPermissions(prev => ({ ...prev, [permission]: isChecked }));
   };
 
   const handleSelectAllPermissions = () => {
@@ -173,7 +216,7 @@ export default function AddUserPage() {
       formDataToSend.append('deuxiemeTelephone', formData.deuxiemeTelephone);
       formDataToSend.append('adresse', formData.adresse);
       formDataToSend.append('etat', formData.etat);
-      formDataToSend.append('role', 'CLIENT'); // Always CLIENT for new users
+      formDataToSend.append('roleId', formData.roleId.toString());
       formDataToSend.append('permissions', JSON.stringify(permissions));
       // Pass current user ID to get their business
       if (currentUser?.id) {
@@ -344,6 +387,40 @@ export default function AddUserPage() {
               <FormHelperText>Le mot de passe doit contenir au moins 6 caractères</FormHelperText>
               {errors.password && <FormErrorMessage>{errors.password}</FormErrorMessage>}
             </FormControl>
+
+            <FormControl>
+              <FormLabel fontWeight="medium">Rôle</FormLabel>
+              {isClient ? (
+                <Input
+                  value="Membre"
+                  readOnly
+                  disabled
+                  size="md"
+                  bg="gray.100"
+                  _dark={{ bg: 'gray.800' }}
+                />
+              ) : (
+                <NativeSelectRoot>
+                  <NativeSelectField
+                    value={formData.roleId}
+                    onChange={(e) => handleInputChange('roleId', parseInt(e.target.value))}
+                    size="md"
+                  >
+                    {availableRoles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name === 'ADMIN' ? 'Admin' :
+                         role.name === 'LIVREUR' ? 'Livreur' :
+                         role.name === 'MEMBER' ? 'Membre' : 'Client'}
+                      </option>
+                    ))}
+                  </NativeSelectField>
+                  <NativeSelectIndicator />
+                </NativeSelectRoot>
+              )}
+              {isClient && (
+                <FormHelperText>Les clients ne peuvent créer que des membres</FormHelperText>
+              )}
+            </FormControl>
           </VStack>
         </Card>
 
@@ -465,12 +542,7 @@ export default function AddUserPage() {
             <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
               <CheckboxRoot
                 checked={permissions.dashboard}
-                onCheckedChange={(details) => {
-                  const isChecked = Array.isArray(details.checked) 
-                    ? details.checked.includes(true)
-                    : details.checked === true;
-                  handlePermissionChange('dashboard', isChecked);
-                }}
+                onCheckedChange={(details) => handlePermissionChange('dashboard', details.checked)}
               >
                 <CheckboxControl />
                 <CheckboxLabel fontWeight="medium">Tableau de bord</CheckboxLabel>
@@ -478,12 +550,7 @@ export default function AddUserPage() {
 
               <CheckboxRoot
                 checked={permissions.gestionColis}
-                onCheckedChange={(details) => {
-                  const isChecked = Array.isArray(details.checked) 
-                    ? details.checked.includes(true)
-                    : details.checked === true;
-                  handlePermissionChange('gestionColis', isChecked);
-                }}
+                onCheckedChange={(details) => handlePermissionChange('gestionColis', details.checked)}
               >
                 <CheckboxControl />
                 <CheckboxLabel fontWeight="medium">Gestion des colis</CheckboxLabel>
@@ -491,12 +558,7 @@ export default function AddUserPage() {
 
               <CheckboxRoot
                 checked={permissions.gestionRamassages}
-                onCheckedChange={(details) => {
-                  const isChecked = Array.isArray(details.checked) 
-                    ? details.checked.includes(true)
-                    : details.checked === true;
-                  handlePermissionChange('gestionRamassages', isChecked);
-                }}
+                onCheckedChange={(details) => handlePermissionChange('gestionRamassages', details.checked)}
               >
                 <CheckboxControl />
                 <CheckboxLabel fontWeight="medium">Gestion des ramassages</CheckboxLabel>
@@ -504,12 +566,7 @@ export default function AddUserPage() {
 
               <CheckboxRoot
                 checked={permissions.gestionStock}
-                onCheckedChange={(details) => {
-                  const isChecked = Array.isArray(details.checked) 
-                    ? details.checked.includes(true)
-                    : details.checked === true;
-                  handlePermissionChange('gestionStock', isChecked);
-                }}
+                onCheckedChange={(details) => handlePermissionChange('gestionStock', details.checked)}
               >
                 <CheckboxControl />
                 <CheckboxLabel fontWeight="medium">Gestion de stock</CheckboxLabel>
@@ -517,12 +574,7 @@ export default function AddUserPage() {
 
               <CheckboxRoot
                 checked={permissions.gestionRetours}
-                onCheckedChange={(details) => {
-                  const isChecked = Array.isArray(details.checked) 
-                    ? details.checked.includes(true)
-                    : details.checked === true;
-                  handlePermissionChange('gestionRetours', isChecked);
-                }}
+                onCheckedChange={(details) => handlePermissionChange('gestionRetours', details.checked)}
               >
                 <CheckboxControl />
                 <CheckboxLabel fontWeight="medium">Gestion des retours</CheckboxLabel>
@@ -530,12 +582,7 @@ export default function AddUserPage() {
 
               <CheckboxRoot
                 checked={permissions.gestionFactures}
-                onCheckedChange={(details) => {
-                  const isChecked = Array.isArray(details.checked) 
-                    ? details.checked.includes(true)
-                    : details.checked === true;
-                  handlePermissionChange('gestionFactures', isChecked);
-                }}
+                onCheckedChange={(details) => handlePermissionChange('gestionFactures', details.checked)}
               >
                 <CheckboxControl />
                 <CheckboxLabel fontWeight="medium">Gestion des factures</CheckboxLabel>
@@ -543,12 +590,7 @@ export default function AddUserPage() {
 
               <CheckboxRoot
                 checked={permissions.chat}
-                onCheckedChange={(details) => {
-                  const isChecked = Array.isArray(details.checked) 
-                    ? details.checked.includes(true)
-                    : details.checked === true;
-                  handlePermissionChange('chat', isChecked);
-                }}
+                onCheckedChange={(details) => handlePermissionChange('chat', details.checked)}
               >
                 <CheckboxControl />
                 <CheckboxLabel fontWeight="medium">Chat</CheckboxLabel>
@@ -556,12 +598,7 @@ export default function AddUserPage() {
 
               <CheckboxRoot
                 checked={permissions.mesTickets}
-                onCheckedChange={(details) => {
-                  const isChecked = Array.isArray(details.checked) 
-                    ? details.checked.includes(true)
-                    : details.checked === true;
-                  handlePermissionChange('mesTickets', isChecked);
-                }}
+                onCheckedChange={(details) => handlePermissionChange('mesTickets', details.checked)}
               >
                 <CheckboxControl />
                 <CheckboxLabel fontWeight="medium">Mes Tickets</CheckboxLabel>

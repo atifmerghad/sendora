@@ -11,6 +11,7 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '@/components/Table';
 import { Card } from '@/components/Card';
 import { Search } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
+import { PermissionGate } from '@/components/PermissionGate';
 
 const returns = [
   { id: '1', numeroColis: 'COL-001', raison: 'Produit défectueux', dateDemande: '2024-01-15', statut: 'en_attente' },
@@ -20,7 +21,8 @@ const returns = [
 
 export default function ReturnsPage() {
   return (
-    <Box>
+    <PermissionGate permission="gestionRetours">
+      <Box>
       <HStack justify="space-between" mb={6}>
         <Heading size="lg">Liste des retours</Heading>
         <Button colorScheme="blue" onClick={() => window.location.href = '/dashboard/returns/add'}>
@@ -60,7 +62,8 @@ export default function ReturnsPage() {
           </Table>
         </Box>
       </Card>
-    </Box>
+      </Box>
+    </PermissionGate>
   );
 }
 

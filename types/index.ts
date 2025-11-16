@@ -5,6 +5,14 @@ export interface Role {
   updatedAt: string;
 }
 
+export interface AccountState {
+  id: number;
+  name: string;
+  code: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   id: string;
   nom: string;
@@ -18,10 +26,12 @@ export interface User {
   roleId: number;
   role?: Role; // Optional, included when fetched with relation
   roleName?: string; // Convenience field for role name (CLIENT, ADMIN, etc.)
-  permissions?: string | null;
+  accountStateId: number;
+  accountState?: AccountState; // Optional, included when fetched with relation
+  permissions?: string[] | null; // Array of permission names (e.g., ['dashboard', 'gestionColis', ...])
   deuxiemeTelephone?: string | null;
   adresse?: string | null;
-  etat?: string | null;
+  etat?: string | null; // Deprecated: use accountState.name or accountState.code instead
   imageProfil?: string | null;
   createdAt: string;
 }

@@ -37,13 +37,15 @@ import {
   Package2,
 } from 'lucide-react';
 import { useSidebar } from '@/contexts/SidebarContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CollapsibleRoot, CollapsibleTrigger, CollapsibleContent, CollapsibleIndicator } from '@chakra-ui/react';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface SubMenuItem {
   labelKey: string;
   icon: React.ElementType;
   path: string;
+  permission?: string; // Permission required to show this item
 }
 
 interface MenuItem {
@@ -51,47 +53,50 @@ interface MenuItem {
   icon: React.ElementType;
   path?: string;
   submenu?: SubMenuItem[];
+  permission?: string; // Permission required to show this item
 }
 
 const menuItems: MenuItem[] = [
-  { labelKey: 'dashboard', icon: LayoutDashboard, path: '/dashboard' },
-  { labelKey: 'addParcel', icon: PackagePlus, path: '/dashboard/parcels/add' },
-  { labelKey: 'parcelsList', icon: Package, path: '/dashboard/parcels' },
-  { labelKey: 'requestPickup', icon: Truck, path: '/dashboard/pickups/add' },
-  { labelKey: 'pickupsList', icon: TruckIcon, path: '/dashboard/pickups' },
-  { labelKey: 'tickets', icon: FileText, path: '/dashboard/tickets' },
+  { labelKey: 'dashboard', icon: LayoutDashboard, path: '/dashboard', permission: 'dashboard' },
+  { labelKey: 'addParcel', icon: PackagePlus, path: '/dashboard/parcels/add', permission: 'gestionColis' },
+  { labelKey: 'parcelsList', icon: Package, path: '/dashboard/parcels', permission: 'gestionColis' },
+  { labelKey: 'requestPickup', icon: Truck, path: '/dashboard/pickups/add', permission: 'gestionRamassages' },
+  { labelKey: 'pickupsList', icon: TruckIcon, path: '/dashboard/pickups', permission: 'gestionRamassages' },
+  { labelKey: 'tickets', icon: FileText, path: '/dashboard/tickets', permission: 'mesTickets' },
   {
     labelKey: 'billing',
     icon: Receipt,
+    permission: 'gestionFactures',
     submenu: [
-      { labelKey: 'invoiceList', icon: FileText, path: '/dashboard/billing/invoices' },
-      { labelKey: 'unbilledParcels', icon: Package, path: '/dashboard/billing/unbilled' },
+      { labelKey: 'invoiceList', icon: FileText, path: '/dashboard/billing/invoices', permission: 'gestionFactures' },
+      { labelKey: 'unbilledParcels', icon: Package, path: '/dashboard/billing/unbilled', permission: 'gestionFactures' },
     ]
   },
-  { labelKey: 'requestReturn', icon: RotateCcw, path: '/dashboard/returns/add' },
-  { labelKey: 'returnsList', icon: RotateCcwIcon, path: '/dashboard/returns' },
+  { labelKey: 'requestReturn', icon: RotateCcw, path: '/dashboard/returns/add', permission: 'gestionRetours' },
+  { labelKey: 'returnsList', icon: RotateCcwIcon, path: '/dashboard/returns', permission: 'gestionRetours' },
   { 
     labelKey: 'inventory', 
-    icon: Warehouse, 
+    icon: Warehouse,
+    permission: 'gestionStock',
     submenu: [
-      { labelKey: 'productList', icon: List, path: '/dashboard/inventory/products' },
-      { labelKey: 'stockEntry', icon: ArrowDownToLine, path: '/dashboard/inventory/entry' },
-      { labelKey: 'stockExit', icon: ArrowUpFromLine, path: '/dashboard/inventory/exit' },
-      { labelKey: 'parcelStockMovement', icon: PackageX, path: '/dashboard/inventory/movement' },
-      { labelKey: 'packagingManagement', icon: Package2, path: '/dashboard/inventory/packaging' },
+      { labelKey: 'productList', icon: List, path: '/dashboard/inventory/products', permission: 'gestionStock' },
+      { labelKey: 'stockEntry', icon: ArrowDownToLine, path: '/dashboard/inventory/entry', permission: 'gestionStock' },
+      { labelKey: 'stockExit', icon: ArrowUpFromLine, path: '/dashboard/inventory/exit', permission: 'gestionStock' },
+      { labelKey: 'parcelStockMovement', icon: PackageX, path: '/dashboard/inventory/movement', permission: 'gestionStock' },
+      { labelKey: 'packagingManagement', icon: Package2, path: '/dashboard/inventory/packaging', permission: 'gestionStock' },
     ]
   },
-  { labelKey: 'cities', icon: MapPin, path: '/dashboard/cities' },
+  { labelKey: 'cities', icon: MapPin, path: '/dashboard/cities' }, // No permission required
   { 
     labelKey: 'team', 
-    icon: Users, 
+    icon: Users,
     submenu: [
-      { labelKey: 'users', icon: User, path: '/dashboard/users' },
+      { labelKey: 'users', icon: User, path: '/dashboard/users' }, // Only ADMIN and CLIENT can access
     ]
   },
-  { labelKey: 'help', icon: HelpCircle, path: '/dashboard/help' },
-  { labelKey: 'api', icon: Code, path: '/dashboard/api' },
-  { labelKey: 'messages', icon: MessageSquare, path: '/dashboard/messages' },
+  { labelKey: 'help', icon: HelpCircle, path: '/dashboard/help' }, // No permission required
+  { labelKey: 'api', icon: Code, path: '/dashboard/api' }, // No permission required
+  { labelKey: 'messages', icon: MessageSquare, path: '/dashboard/messages', permission: 'chat' },
 ];
 
 export function Sidebar() {
@@ -99,13 +104,49 @@ export function Sidebar() {
   const { isCollapsed, isMobile, isOpen, toggleSidebar, closeSidebar } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
-  const bg = useColorModeValue('white', 'gray.800');
+  const { hasPermission, isAdmin, isClient } = usePermissions();
+  const sidebarBg = useColorModeValue('rgba(255, 255, 255, 0.7)', 'rgba(26, 32, 44, 0.85)');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const hoverBg = useColorModeValue('gray.100', 'gray.700');
   const activeBg = useColorModeValue('blue.50', 'blue.900');
   const activeColor = useColorModeValue('blue.600', 'blue.300');
   const textColor = useColorModeValue('gray.700', 'gray.200');
   const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set());
+
+  // Filter menu items based on permissions
+  const visibleMenuItems = useMemo(() => {
+    return menuItems.filter(item => {
+      // If no permission specified, always show (e.g., help, cities, api)
+      if (!item.permission) {
+        // Special case for team menu: only ADMIN and CLIENT can see it
+        if (item.labelKey === 'team') {
+          return isAdmin || isClient;
+        }
+        return true;
+      }
+      
+      // Check if user has the required permission
+      return hasPermission(item.permission);
+    }).map(item => {
+      // Filter submenu items based on permissions
+      if (item.submenu) {
+        return {
+          ...item,
+          submenu: item.submenu.filter(subItem => {
+            if (!subItem.permission) return true;
+            return hasPermission(subItem.permission);
+          }),
+        };
+      }
+      return item;
+    }).filter(item => {
+      // If a menu item has submenu, only show it if it has at least one visible submenu item
+      if (item.submenu && item.submenu.length === 0) {
+        return false;
+      }
+      return true;
+    });
+  }, [hasPermission, isAdmin, isClient]);
 
   const handleItemClick = (path: string) => {
     router.push(path);
@@ -134,14 +175,14 @@ export function Sidebar() {
   useEffect(() => {
     setExpandedMenus(prev => {
       const newSet = new Set(prev);
-      menuItems.forEach(item => {
+      visibleMenuItems.forEach(item => {
         if (item.submenu && isSubmenuActive(item.submenu)) {
           newSet.add(item.labelKey);
         }
       });
       return newSet;
     });
-  }, [pathname]);
+  }, [pathname, visibleMenuItems]);
 
   return (
     <>
@@ -164,20 +205,23 @@ export function Sidebar() {
         top={0}
         h="100vh"
         w={isMobile ? (isOpen ? '260px' : '0') : (isCollapsed ? '80px' : '260px')}
-        bg={bg}
+        bg={sidebarBg}
+        backdropFilter="blur(12px)"
         borderRight="1px solid"
         borderColor={borderColor}
-        transition="width 0.3s, transform 0.3s"
+        transition="width 0.3s, transform 0.3s, background 0.2s"
         zIndex={1000}
         display="flex"
         flexDirection="column"
         transform={isMobile && !isOpen ? 'translateX(-100%)' : 'translateX(0)'}
         overflow="hidden"
+        boxShadow="xl"
       >
       <Box
         position="sticky"
         top={0}
-        bg={bg}
+        bg={sidebarBg}
+        backdropFilter="blur(12px)"
         zIndex={10}
         borderBottom="1px solid"
         borderColor={borderColor}
@@ -227,7 +271,7 @@ export function Sidebar() {
         overflowX="hidden"
       >
         <VStack align="stretch" gap={0} p={2}>
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const Icon = item.icon;
             const hasSubmenu = item.submenu && item.submenu.length > 0;
             const isActive = item.path ? pathname === item.path : (hasSubmenu && isSubmenuActive(item.submenu!));

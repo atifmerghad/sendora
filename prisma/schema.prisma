@@ -7,204 +7,61 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Role {
+model AccountState {
   id        Int      @id @default(autoincrement())
-  name      String   @unique // CLIENT, ADMIN, LIVREUR, MEMBER
+  name      String   @unique // Active, Inactive, Suspended
+  code      String   @unique // ACTIVE, INACTIVE, SUSPENDED
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   users     User[]
 
-  @@map("roles")
+  @@map("account_states")
 }
 
-model User {
-  id                String       @id @default(uuid())
-  nom               String
-  prenom            String
-  email             String       @unique
-  password          String
-  telephone         String
-  deuxiemeTelephone String?
-  adresse           String?
-  etat              String?
-  roleId            Int          @default(1) // Default to CLIENT role (id=1)
-  permissions       String?
-  imageProfil       String?
-  businessId        String?      // Primary business (for quick access)
-  createdAt         DateTime     @default(now())
-  role              Role         @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  apiKeys           ApiKey[]
-  inventory         Inventory[]
-  invoices          Invoice[]
-  messages          Message[]
-  parcels           Parcel[]
-  pickups           Pickup[]
-  returns           Return[]
-  teamMembers       TeamMember[]
-  tickets           Ticket[]
-  webhooks          Webhook[]
-  userBusinesses    UserBusiness[]
-  business          Business?    @relation(fields: [businessId], references: [id], onDelete: SetNull)
-
-  @@index([roleId])
-  @@index([businessId])
-  @@map("users")
-}
-
-model Parcel {
-  id                String   @id @default(uuid())
-  numero            String
-  code              String   @unique
-  destinataire      String
-  telephone         String
-  adresse           String
-  ville             String
-  statut            String
-  statutFacturation String
-  typeColis         String
-  fraisLivraison    Float
-  montantTotal      Float
-  referenceColis    String
-  referenceVendeur  String
-  note              String?
-  vendeurSecondaire String?
-  derniereAction    String
-  dateCreation      DateTime @default(now())
-  userId            String   // User who created it (for audit)
-  businessId        String?  // Business it belongs to (for multi-tenancy) - nullable for migration
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business          Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([businessId])
-  @@index([code])
-  @@index([statut])
-  @@index([dateCreation])
-  @@map("parcels")
-}
-
-model Pickup {
-  id                String   @id @default(uuid())
-  code              String   @unique
-  statut            String
-  ville             String
-  nombreColis       Int      @default(0)
-  dateDemande       DateTime @default(now())
-  frais             Float    @default(0)
-  nom               String
-  telephone         String
-  adresse           String
-  note              String?
-  vendeurSecondaire String?
-  userId            String   // User who created it (for audit)
-  businessId        String?  // Business it belongs to (for multi-tenancy) - nullable for migration
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business          Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([businessId])
-  @@index([code])
-  @@index([dateDemande])
-  @@map("pickups")
-}
-
-model Ticket {
-  id           String   @id @default(uuid())
-  sujet        String
-  description  String
-  statut       String
-  dateCreation DateTime @default(now())
-  userId       String   // User who created it (for audit)
-  businessId   String?  // Business it belongs to (for multi-tenancy) - nullable for migration
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business     Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([businessId])
-  @@index([statut])
-  @@map("tickets")
-}
-
-model Invoice {
-  id           String   @id @default(uuid())
-  numero       String   @unique
-  montant      Float
-  dateEmission DateTime @default(now())
-  statut       String
-  userId       String   // User who created it (for audit)
-  businessId   String?  // Business it belongs to (for multi-tenancy) - nullable for migration
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business     Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([businessId])
-  @@index([numero])
-  @@map("invoices")
-}
-
-model Return {
-  id          String   @id @default(uuid())
-  numeroColis String
-  raison      String
-  dateDemande DateTime @default(now())
-  statut      String
-  userId      String   // User who created it (for audit)
-  businessId  String?  // Business it belongs to (for multi-tenancy) - nullable for migration
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([businessId])
-  @@index([numeroColis])
-  @@map("returns")
-}
-
-model Inventory {
-  id        String   @id @default(uuid())
-  produit   String
-  quantite  Int
-  prix      Float
-  dateAjout DateTime @default(now())
-  userId    String   // User who created it (for audit)
-  businessId String? // Business it belongs to (for multi-tenancy) - nullable for migration
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business  Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([businessId])
-  @@map("inventory")
-}
-
-model TeamMember {
-  id        String   @id @default(uuid())
-  nom       String
-  prenom    String
-  email     String   @unique
-  role      String
-  dateAjout DateTime @default(now())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("team_members")
-}
-
-model Message {
-  id         String   @id @default(uuid())
-  expediteur String
-  sujet      String
-  contenu    String
-  dateEnvoi  DateTime @default(now())
-  lu         Boolean  @default(false)
+model api_keys {
+  id         String      @id
+  key        String      @unique
+  name       String
+  active     Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  lastUsedAt DateTime?
   userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessId String?
+  businesses businesses? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  users      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([key])
+  @@index([businessId])
   @@index([userId])
-  @@index([lu])
-  @@map("messages")
 }
 
-model City {
+model businesses {
+  id              String            @id
+  businessName    String
+  siteUrl         String?
+  ville           String?
+  adresse         String?
+  telephone       String?
+  email           String?
+  etat            String            @default("Active")
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime
+  api_keys        api_keys[]
+  inventory       inventory[]
+  invoices        invoices[]
+  parcels         parcels[]
+  pickups         pickups[]
+  returns         returns[]
+  tickets         tickets[]
+  user_businesses user_businesses[]
+  users           User[]
+  webhooks        webhooks[]
+
+  @@index([etat])
+  @@index([businessName])
+}
+
+model cities {
   id                  Int       @id @default(autoincrement())
   zoneId              Int?
   ville               String
@@ -234,94 +91,253 @@ model City {
   updatedAt           DateTime?
   deletedAt           DateTime?
 
-  @@index([ville])
+  @@index([active])
   @@index([region])
-  @@index([active])
-  @@map("cities")
+  @@index([ville])
 }
 
-model ApiKey {
-  id         String    @id @default(uuid())
-  key        String    @unique
-  name       String
-  active     Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-  lastUsedAt DateTime?
-  userId     String    // User who created it (for audit)
-  businessId String?   // Business it belongs to (for multi-tenancy) - nullable for migration
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+model inventory {
+  id         String      @id
+  produit    String
+  quantite   Int
+  prix       Float
+  dateAjout  DateTime    @default(now())
+  userId     String
+  businessId String?
+  businesses businesses? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  users      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([userId])
+}
+
+model invoices {
+  id           String      @id
+  numero       String      @unique
+  montant      Float
+  dateEmission DateTime    @default(now())
+  statut       String
+  userId       String
+  businessId   String?
+  businesses   businesses? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  users        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([numero])
+  @@index([businessId])
+  @@index([userId])
+}
+
+model messages {
+  id         String   @id
+  expediteur String
+  sujet      String
+  contenu    String
+  dateEnvoi  DateTime @default(now())
+  lu         Boolean  @default(false)
+  userId     String
+  users      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lu])
+  @@index([userId])
+}
+
+model parcels {
+  id                String      @id
+  numero            String
+  code              String      @unique
+  destinataire      String
+  telephone         String
+  adresse           String
+  ville             String
+  statut            String
+  statutFacturation String
+  typeColis         String
+  fraisLivraison    Float
+  montantTotal      Float
+  referenceColis    String
+  referenceVendeur  String
+  note              String?
+  vendeurSecondaire String?
+  derniereAction    String
+  dateCreation      DateTime    @default(now())
+  userId            String
+  businessId        String?
+  businesses        businesses? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  users             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([dateCreation])
+  @@index([statut])
+  @@index([code])
+  @@index([businessId])
+  @@index([userId])
+}
+
+model permissions {
+  id               Int                @id @default(autoincrement())
+  name             String             @unique(map: "sqlite_autoindex_permissions_1")
+  description      String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @default(now())
+  user_permissions user_permissions[]
+}
+
+model pickups {
+  id                String      @id
+  code              String      @unique
+  statut            String
+  ville             String
+  nombreColis       Int         @default(0)
+  dateDemande       DateTime    @default(now())
+  frais             Float       @default(0)
+  nom               String
+  telephone         String
+  adresse           String
+  note              String?
+  vendeurSecondaire String?
+  userId            String
+  businessId        String?
+  businesses        businesses? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  users             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([dateDemande])
+  @@index([code])
+  @@index([businessId])
+  @@index([userId])
+}
+
+model returns {
+  id          String      @id
+  numeroColis String
+  raison      String
+  dateDemande DateTime    @default(now())
+  statut      String
+  userId      String
+  businessId  String?
+  businesses  businesses? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  users       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([numeroColis])
+  @@index([businessId])
+  @@index([userId])
+}
+
+model Role {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique // CLIENT, ADMIN, LIVREUR, MEMBER
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+
+  @@map("roles")
+}
+
+model team_members {
+  id        String   @id
+  nom       String
+  prenom    String
+  email     String   @unique
+  role      String
+  dateAjout DateTime @default(now())
+  userId    String
+  users     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([businessId])
-  @@index([key])
-  @@map("api_keys")
 }
 
-model Webhook {
-  id              String    @id @default(uuid())
-  url             String
-  event           String
-  secretKey       String    @unique
-  active          Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  lastTriggeredAt DateTime?
-  userId          String    // User who created it (for audit)
-  businessId      String?   // Business it belongs to (for multi-tenancy) - nullable for migration
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business        Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+model tickets {
+  id           String      @id
+  sujet        String
+  description  String
+  statut       String
+  dateCreation DateTime    @default(now())
+  userId       String
+  businessId   String?
+  businesses   businesses? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  users        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([statut])
+  @@index([businessId])
   @@index([userId])
-  @@index([businessId])
-  @@index([event])
-  @@index([active])
-  @@map("webhooks")
 }
 
-model Business {
-  id           String   @id @default(uuid())
-  businessName String   // Business/Brand name (renamed from nomMarque)
-  siteUrl      String?
-  ville        String?
-  adresse      String?
-  telephone    String?
-  email        String?
-  etat         String   @default("Active") // Active, Inactive, etc.
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relations
-  users         User[]
-  userBusinesses UserBusiness[]
-  parcels      Parcel[]
-  pickups      Pickup[]
-  tickets      Ticket[]
-  invoices     Invoice[]
-  returns      Return[]
-  inventory    Inventory[]
-  apiKeys      ApiKey[]
-  webhooks     Webhook[]
-
-  @@map("businesses")
-  @@index([businessName])
-  @@index([etat])
-}
-
-// Many-to-many relationship between Users and Businesses
-model UserBusiness {
-  id         String   @id @default(uuid())
+model user_businesses {
+  id         String     @id
   userId     String
   businessId String
-  role       String   @default("member") // owner, admin, member
-  createdAt  DateTime @default(now())
-
-  // Relations
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  role       String     @default("member")
+  createdAt  DateTime   @default(now())
+  businesses businesses @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  users      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, businessId])
-  @@map("user_businesses")
-  @@index([userId])
   @@index([businessId])
+  @@index([userId])
 }
 
+model user_permissions {
+  id           String      @id
+  userId       String
+  permissionId Int
+  createdAt    DateTime    @default(now())
+  permissions  permissions @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  users        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId], map: "sqlite_autoindex_user_permissions_2")
+  @@index([permissionId])
+  @@index([userId])
+}
+
+model User {
+  id                String          @id @default(uuid())
+  nom               String
+  prenom            String
+  email             String          @unique
+  password          String
+  telephone         String
+  deuxiemeTelephone String?
+  adresse           String?
+  accountStateId    Int             @default(1) // Default to ACTIVE state (id=1)
+  roleId            Int             @default(1) // Default to CLIENT role (id=1)
+  imageProfil       String?
+  businessId        String?         // Primary business (for quick access)
+  createdAt         DateTime        @default(now())
+  role              Role            @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  accountState      AccountState    @relation(fields: [accountStateId], references: [id], onDelete: Restrict)
+  api_keys          api_keys[]
+  inventory         inventory[]
+  invoices          invoices[]
+  messages          messages[]
+  parcels           parcels[]
+  pickups           pickups[]
+  returns           returns[]
+  team_members      team_members[]
+  tickets           tickets[]
+  user_businesses   user_businesses[]
+  user_permissions  user_permissions[]
+  businesses        businesses?     @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  webhooks          webhooks[]
+
+  @@index([roleId])
+  @@index([businessId])
+  @@index([accountStateId])
+  @@map("users")
+}
+
+model webhooks {
+  id              String      @id
+  url             String
+  event           String
+  secretKey       String      @unique
+  active          Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  lastTriggeredAt DateTime?
+  userId          String
+  businessId      String?
+  businesses      businesses? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  users           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([active])
+  @@index([event])
+  @@index([businessId])
+  @@index([userId])
+}

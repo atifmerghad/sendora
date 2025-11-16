@@ -25,6 +25,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Download, Upload, Printer, Plus, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { Parcel } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { PermissionGate } from '@/components/PermissionGate';
 
 const statutOptions = [
   { value: '', label: 'Sélectionnez tous' },
@@ -222,7 +223,8 @@ export default function ParcelsPage() {
   };
 
   return (
-    <Box>
+    <PermissionGate permission="gestionColis">
+      <Box>
       <HStack justify="space-between" mb={6} flexWrap="wrap" gap={4}>
         <Heading size="lg">Colis</Heading>
         <HStack gap={2} flexWrap="wrap">
@@ -461,6 +463,7 @@ export default function ParcelsPage() {
           </>
         )}
       </Card>
-    </Box>
+      </Box>
+    </PermissionGate>
   );
 }
