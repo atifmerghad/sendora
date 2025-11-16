@@ -28,6 +28,20 @@ function getPrismaClient(): PrismaClient {
     return newInstance;
   }
   
+  // In development, clear cache and create fresh instance
+  // This ensures we always use the latest Prisma Client after schema changes
+  if (process.env.NODE_ENV === 'development') {
+    try {
+      cached.$disconnect().catch(() => {});
+    } catch {
+      // Ignore disconnect errors
+    }
+    // Always create fresh instance in development to pick up schema changes
+    const newInstance = createPrismaClient();
+    globalForPrisma.prisma = newInstance;
+    return newInstance;
+  }
+  
   // Verify cached instance has the new models
   // Try to access the models - if they don't exist, accessing them might throw or return undefined
   try {
@@ -36,10 +50,12 @@ function getPrismaClient(): PrismaClient {
     // Prisma Client models are objects with methods like findMany, create, etc.
     const hasWebhook = cachedAny.webhook && typeof cachedAny.webhook.findMany === 'function';
     const hasApiKey = cachedAny.apiKey && typeof cachedAny.apiKey.findMany === 'function';
+    const hasBusiness = cachedAny.business && typeof cachedAny.business.findMany === 'function';
+    const hasUserBusiness = cachedAny.userBusiness && typeof cachedAny.userBusiness.findMany === 'function';
     
-    if (!hasWebhook || !hasApiKey) {
+    if (!hasWebhook || !hasApiKey || !hasBusiness || !hasUserBusiness) {
       // Cached instance is outdated - it doesn't have the new models
-      console.warn('[Prisma] Cached instance is outdated (missing webhook or apiKey models), creating new instance...');
+      console.warn('[Prisma] Cached instance is outdated (missing models), creating new instance...');
       // Disconnect old instance gracefully
       cached.$disconnect().catch(() => {
         // Ignore disconnect errors

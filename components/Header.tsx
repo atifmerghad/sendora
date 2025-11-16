@@ -148,8 +148,8 @@ export function Header() {
           <MenuTrigger asChild>
             <Box as="button" cursor="pointer" type="button">
               <HStack gap={3}>
-                <AvatarRoot size="sm" bg="blue.500">
-                  <AvatarFallback>{getInitials()}</AvatarFallback>
+                <AvatarRoot size="sm" bg="blue.500" color="white">
+                  <AvatarFallback color="white">{getInitials()}</AvatarFallback>
                 </AvatarRoot>
                 <VStack align="start" gap={0} display={{ base: 'none', md: 'flex' }}>
                   <Text fontSize="xs" fontWeight="semibold" color={textColor}>

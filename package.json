@@ -12,7 +12,8 @@
     "db:studio": "prisma studio",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:seed-cities": "tsx prisma/seed-cities.ts"
+    "db:seed-cities": "tsx prisma/seed-cities.ts",
+    "db:seed-roles": "tsx prisma/seed-roles.ts"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.0.0",

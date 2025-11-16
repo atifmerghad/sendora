@@ -70,10 +70,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('sendora_user', JSON.stringify(newUser));
         localStorage.setItem('sendora_token', data.token);
         return true;
+      } else {
+        // Get error message from API response
+        const errorData = await response.json().catch(() => ({ error: 'Erreur lors de l\'inscription' }));
+        throw new Error(errorData.error || 'Erreur lors de l\'inscription');
       }
-      return false;
-    } catch (error) {
-      return false;
+    } catch (error: any) {
+      // Re-throw error so it can be caught in the component
+      throw error;
     }
   };
 

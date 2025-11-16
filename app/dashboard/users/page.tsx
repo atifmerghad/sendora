@@ -27,25 +27,11 @@ import {
 import { TanStackTable } from '@/components/TanStackTable';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Card } from '@/components/Card';
-import { Search, Plus, User, ChevronLeft, ChevronRight, Eye, Edit, Trash2 } from 'lucide-react';
+import { Search, Plus, User as UserIcon, ChevronLeft, ChevronRight, Eye, Edit, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
-
-interface User {
-  id: string;
-  nom: string;
-  prenom: string;
-  email: string;
-  telephone: string;
-  deuxiemeTelephone?: string | null;
-  adresse?: string | null;
-  etat?: string | null;
-  permissions?: any;
-  imageProfil?: string | null;
-  ville: string;
-  createdAt: string;
-}
+import { User } from '@/types';
 
 export default function UsersPage() {
   const router = useRouter();
@@ -69,6 +55,11 @@ export default function UsersPage() {
         page: currentPage.toString(),
         limit: itemsPerPage.toString(),
       });
+
+      // Pass current user ID to filter by business
+      if (currentUser?.id) {
+        params.append('currentUserId', currentUser.id);
+      }
 
       if (searchTerm) {
         params.append('search', searchTerm);
@@ -96,7 +87,7 @@ export default function UsersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, currentPage, itemsPerPage]);
+  }, [searchTerm, currentPage, itemsPerPage, currentUser]);
 
   useEffect(() => {
     fetchUsers();
@@ -251,6 +242,30 @@ export default function UsersPage() {
       header: 'Email',
     },
     {
+      accessorKey: 'roleName',
+      header: 'Rôle',
+      cell: ({ row }) => {
+        const roleName = row.original.roleName || 'CLIENT';
+        const roleLabels: Record<string, string> = {
+          CLIENT: 'Client',
+          LIVREUR: 'Livreur',
+          ADMIN: 'Admin',
+          MEMBER: 'Membre',
+        };
+        const colorScheme: Record<string, string> = {
+          CLIENT: 'blue',
+          LIVREUR: 'orange',
+          ADMIN: 'purple',
+          MEMBER: 'green',
+        };
+        return (
+          <Badge colorScheme={colorScheme[roleName] || 'gray'} px={2} py={1} borderRadius="md">
+            {roleLabels[roleName] || roleName}
+          </Badge>
+        );
+      },
+    },
+    {
       accessorKey: 'etat',
       header: 'Active',
       cell: ({ row }) => {
@@ -387,7 +402,7 @@ export default function UsersPage() {
           <Text textAlign="center" py={8}>Chargement...</Text>
         ) : users.length === 0 ? (
           <VStack py={8} gap={4}>
-            <User size={48} style={{ opacity: 0.5 }} />
+            <UserIcon size={48} style={{ opacity: 0.5 }} />
             <Text color="gray.500" textAlign="center">
               {searchTerm ? 'Aucun utilisateur trouvé' : 'Aucun utilisateur enregistré'}
             </Text>

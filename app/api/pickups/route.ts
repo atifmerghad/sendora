@@ -15,10 +15,35 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
 
-    // Build where clause
+    // Get current user's businessId to filter by business (multi-tenancy)
+    let businessId: string | null = null;
+    if (userId) {
+      // Try to get businessId from user's direct relationship first
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { businessId: true },
+      });
+      
+      if (currentUser?.businessId) {
+        businessId = currentUser.businessId;
+      } else {
+        // Fallback to UserBusiness join table
+        const userBusiness = await prisma.userBusiness.findFirst({
+          where: { userId: userId },
+        });
+        if (userBusiness) {
+          businessId = userBusiness.businessId;
+        }
+      }
+    }
+
+    // Build where clause - filter by businessId instead of userId
     const where: any = {};
     
-    if (userId) {
+    if (businessId) {
+      where.businessId = businessId;
+    } else if (userId) {
+      // Fallback to userId if no businessId (backward compatibility)
       where.userId = userId;
     }
     
@@ -111,6 +136,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get the businessId from the user creating the pickup
+    let businessId: string | null = null;
+    if (userId) {
+      // Try to get businessId from user's direct relationship first
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { businessId: true },
+      });
+      
+      if (currentUser?.businessId) {
+        businessId = currentUser.businessId;
+      } else {
+        // Fallback to UserBusiness join table
+        const userBusiness = await prisma.userBusiness.findFirst({
+          where: { userId: userId },
+        });
+        if (userBusiness) {
+          businessId = userBusiness.businessId;
+        }
+      }
+    }
+
     // Generate unique code
     const count = await prisma.pickup.count();
     const code = `RAM-${String(count + 1).padStart(3, '0')}`;
@@ -128,6 +175,7 @@ export async function POST(request: NextRequest) {
         note: note || null,
         vendeurSecondaire: null,
         userId,
+        businessId: businessId, // Set businessId for multi-tenancy
       },
     });
 

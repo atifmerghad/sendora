@@ -129,4 +129,3 @@ Opens at `http://localhost:5555` - great for development and debugging!
 - Migrations are tracked in git
 - Always run `npm run db:generate` after pulling changes that modify the schema
 - Use migrations for production, `db push` only for rapid prototyping
-

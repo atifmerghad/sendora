@@ -1,3 +1,10 @@
+export interface Role {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   id: string;
   nom: string;
@@ -8,6 +15,14 @@ export interface User {
   nomMarque: string;
   siteUrl: string;
   ville: string;
+  roleId: number;
+  role?: Role; // Optional, included when fetched with relation
+  roleName?: string; // Convenience field for role name (CLIENT, ADMIN, etc.)
+  permissions?: string | null;
+  deuxiemeTelephone?: string | null;
+  adresse?: string | null;
+  etat?: string | null;
+  imageProfil?: string | null;
   createdAt: string;
 }
 
@@ -29,6 +44,7 @@ export interface SignupData {
   nomMarque: string;
   siteUrl: string;
   ville: string;
+  roleId?: number; // Optional, defaults to CLIENT (id=1)
 }
 
 export interface Parcel {

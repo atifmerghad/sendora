@@ -9,27 +9,61 @@ export async function GET(request: NextRequest) {
     const dateFilter = searchParams.get('dateFilter') || undefined;
     const dateType = searchParams.get('dateType') || 'date_creation';
 
-    // Build where clause for parcels
-    const parcelWhere: any = {};
+    // Get current user's businessId to filter by business (multi-tenancy)
+    let businessId: string | null = null;
     if (userId) {
+      // Try to get businessId from user's direct relationship first
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { businessId: true },
+      });
+      
+      if (currentUser?.businessId) {
+        businessId = currentUser.businessId;
+      } else {
+        // Fallback to UserBusiness join table
+        const userBusiness = await prisma.userBusiness.findFirst({
+          where: { userId: userId },
+        });
+        if (userBusiness) {
+          businessId = userBusiness.businessId;
+        }
+      }
+    }
+
+    // Build where clause for parcels - filter by businessId instead of userId
+    const parcelWhere: any = {};
+    if (businessId) {
+      parcelWhere.businessId = businessId;
+    } else if (userId) {
+      // Fallback to userId if no businessId (backward compatibility)
       parcelWhere.userId = userId;
     }
 
-    // Build where clause for pickups
+    // Build where clause for pickups - filter by businessId instead of userId
     const pickupWhere: any = {};
-    if (userId) {
+    if (businessId) {
+      pickupWhere.businessId = businessId;
+    } else if (userId) {
+      // Fallback to userId if no businessId (backward compatibility)
       pickupWhere.userId = userId;
     }
 
-    // Build where clause for invoices
+    // Build where clause for invoices - filter by businessId instead of userId
     const invoiceWhere: any = {};
-    if (userId) {
+    if (businessId) {
+      invoiceWhere.businessId = businessId;
+    } else if (userId) {
+      // Fallback to userId if no businessId (backward compatibility)
       invoiceWhere.userId = userId;
     }
 
-    // Build where clause for returns
+    // Build where clause for returns - filter by businessId instead of userId
     const returnWhere: any = {};
-    if (userId) {
+    if (businessId) {
+      returnWhere.businessId = businessId;
+    } else if (userId) {
+      // Fallback to userId if no businessId (backward compatibility)
       returnWhere.userId = userId;
     }
 

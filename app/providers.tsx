@@ -73,7 +73,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <LocaleProvider>
       <DirectionHandler />
-      <NextIntlClientProvider locale={locale} messages={messages}>
+      <NextIntlClientProvider 
+        locale={locale} 
+        messages={messages}
+        timeZone="Africa/Casablanca"
+      >
         <ChakraProvider value={customTheme}>
           <AuthProvider>
             {children}

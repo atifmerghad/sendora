@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Heading,
@@ -26,6 +26,7 @@ import { FormControl, FormLabel, FormErrorMessage, FormHelperText } from '@/comp
 import { Card } from '@/components/Card';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/lib/toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { Upload, User, Mail, Phone, MapPin, Shield, Image as ImageIcon, UserPlus, ArrowLeft } from 'lucide-react';
 
 interface Permissions {
@@ -42,6 +43,7 @@ interface Permissions {
 export default function AddUserPage() {
   const router = useRouter();
   const toast = useToast();
+  const { user: currentUser } = useAuth();
 
   const [formData, setFormData] = useState({
     prenom: '',
@@ -171,10 +173,12 @@ export default function AddUserPage() {
       formDataToSend.append('deuxiemeTelephone', formData.deuxiemeTelephone);
       formDataToSend.append('adresse', formData.adresse);
       formDataToSend.append('etat', formData.etat);
+      formDataToSend.append('role', 'CLIENT'); // Always CLIENT for new users
       formDataToSend.append('permissions', JSON.stringify(permissions));
-      formDataToSend.append('nomMarque', ''); // Default value
-      formDataToSend.append('siteUrl', ''); // Default value
-      formDataToSend.append('ville', ''); // Default value
+      // Pass current user ID to get their business
+      if (currentUser?.id) {
+        formDataToSend.append('currentUserId', currentUser.id);
+      }
       
       if (formData.imageProfil) {
         formDataToSend.append('imageProfil', formData.imageProfil);
@@ -403,26 +407,26 @@ export default function AddUserPage() {
             </FormControl>
 
             <FormControl>
-              <FormLabel fontWeight="medium">
-                <HStack gap={2}>
-                  <Shield size={14} />
-                  <Text>État du compte</Text>
-                </HStack>
-              </FormLabel>
-              <NativeSelectRoot>
-                <NativeSelectField
-                  value={formData.etat}
-                  onChange={(e) => handleInputChange('etat', e.target.value)}
-                  size="md"
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                  <option value="Suspendu">Suspendu</option>
-                </NativeSelectField>
-                <NativeSelectIndicator />
-              </NativeSelectRoot>
-              <FormHelperText>Détermine si l'utilisateur peut se connecter</FormHelperText>
-            </FormControl>
+                <FormLabel fontWeight="medium">
+                  <HStack gap={2}>
+                    <Shield size={14} />
+                    <Text>État du compte</Text>
+                  </HStack>
+                </FormLabel>
+                <NativeSelectRoot>
+                  <NativeSelectField
+                    value={formData.etat}
+                    onChange={(e) => handleInputChange('etat', e.target.value)}
+                    size="md"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Suspendu">Suspendu</option>
+                  </NativeSelectField>
+                  <NativeSelectIndicator />
+                </NativeSelectRoot>
+                <FormHelperText>Détermine si l'utilisateur peut se connecter</FormHelperText>
+              </FormControl>
           </VStack>
         </Card>
 
